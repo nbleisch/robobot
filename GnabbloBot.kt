@@ -7,13 +7,10 @@ import robocode.StatusEvent
 import robocode.util.Utils.*
 import java.awt.Color.GREEN
 import java.awt.Color.RED
-import java.awt.geom.Point2D
 import java.awt.geom.Point2D.distance
-import java.lang.Math.toDegrees
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.Double.Companion.MAX_VALUE
 import kotlin.math.*
-
 
 class GnabbloBot : AdvancedRobot() {
 
@@ -65,7 +62,8 @@ class GnabbloBot : AdvancedRobot() {
     private fun aimAndShoot(target: ScannedRobotEventContainer) {
         val maxFirePower = 3.0
         val selectedFirePower = maxFirePower //TODO: Some distance based fire power solution
-        val angleToShootAt = getTrueLinearTargetingAngle(target, getBulletSpeed(selectedFirePower))
+        //val angleToShootAt = getTrueLinearTargetingAngle(target, getBulletSpeed(selectedFirePower))
+        val angleToShootAt = getTrueLinearTargetingAngleV2(target, getBulletSpeed(selectedFirePower))
         val normalizedGunAngleAdjustments = normalRelativeAngle(angleToShootAt - gunHeadingRadians)
         printStatus()
         setTurnGunRightRadians(normalizedGunAngleAdjustments)
@@ -84,17 +82,21 @@ class GnabbloBot : AdvancedRobot() {
     }
 
 
-    private fun getTrueLinearTargetingAngle(scan: ScannedRobotEventContainer, bulletSpeed: Double): Double {
+    //https://robowiki.net/wiki/Linear_Targeting
+    private  fun getTrueLinearTargetingAngleV2(scan: ScannedRobotEventContainer, bulletSpeed: Double): Double {
+        val headOnBearing = headingRadians + scan.target.bearingRadians
+        return  headOnBearing + asin(scan.target.velocity / bulletSpeed * sin(scan.target.headingRadians - headOnBearing))
+    }
 
+
+    private fun getTrueLinearTargetingAngle(scan: ScannedRobotEventContainer, bulletSpeed: Double): Double {
         //Aiming is off
         val passedTimeTicks = 1 + time - scan.target.time
         var predictedX = scan.positionX + sin(scan.target.headingRadians) * (scan.target.velocity * passedTimeTicks)
         var predictedY = scan.positionY + cos(scan.target.headingRadians) * (scan.target.velocity * passedTimeTicks)
+        //TODO: Do iterative targeting
         val distance = distance(x, y, predictedX, predictedY);
         val bulletTravelTime = (distance / bulletSpeed) * 1.2 //1.3 because of game engine
-        println("Distance $distance")
-        println("Bulletspeed $bulletSpeed")
-        println("Bullettraveltime $bulletTravelTime")
         predictedX = scan.positionX + sin(scan.target.headingRadians) * (scan.target.velocity * (passedTimeTicks + bulletTravelTime))
         predictedY = scan.positionY + cos(scan.target.headingRadians) * (scan.target.velocity * (passedTimeTicks + bulletTravelTime))
 
@@ -117,7 +119,6 @@ class GnabbloBot : AdvancedRobot() {
         }
 
     }
-
 
     private fun moveToStartLocation() {
         do {
@@ -151,7 +152,6 @@ class GnabbloBot : AdvancedRobot() {
             setTurnGunRightRadians(normalRelativeAngle(absoluteBearing - gunHeadingRadians))
         }
     }
-
 
     class ScannedRobotEventContainer(
         val target: ScannedRobotEvent,
